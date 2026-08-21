@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: hlh-ai-code-master
+server:
+  port: 8234
+  servlet:
+    context-path: /api
+# springdoc-openapi
+springdoc:
+  group-configs:
+    - group: 'default'
+      paths-to-match: '/**'
+      packages-to-scan: com.hlh.hlhaicodemaster.controller
+# knife4j http://localhost:8234/api/doc.html
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+
+
