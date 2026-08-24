@@ -1,6 +1,8 @@
 spring:
   application:
     name: hlh-ai-code-master
+  profiles:
+    active: local
   # mysql
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver

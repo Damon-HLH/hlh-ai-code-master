@@ -31,7 +31,8 @@ public class AuthInterceptor {
      */
     @Around("@annotation(authCheck)")
     public Object doInterceptor(ProceedingJoinPoint joinPoint, AuthCheck authCheck) throws Throwable {
-        String mustRole = authCheck.mustRole(); // 拿到当前方法的注解中的 mustRole 值
+        // 拿到当前方法的注解中的 mustRole 值
+        String mustRole = authCheck.mustRole();
         UserRoleEnum mustRoleEnum = UserRoleEnum.getEnumByValue(mustRole); // 当前方法要求的权限
 
         // 从方法中的request对象获取登录用户信息
