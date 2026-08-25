@@ -1,6 +1,6 @@
 package com.hlh.hlhaicodemaster.service;
 
-import com.hlh.hlhaicodemaster.model.dto.UserQueryRequest;
+import com.hlh.hlhaicodemaster.model.dto.user.UserQueryRequest;
 import com.hlh.hlhaicodemaster.model.vo.LoginUserVO;
 import com.hlh.hlhaicodemaster.model.vo.UserVO;
 import com.mybatisflex.core.query.QueryWrapper;

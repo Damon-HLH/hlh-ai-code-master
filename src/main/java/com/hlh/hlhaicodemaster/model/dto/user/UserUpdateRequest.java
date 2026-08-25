@@ -1,4 +1,4 @@
-package com.hlh.hlhaicodemaster.model.dto;
+package com.hlh.hlhaicodemaster.model.dto.user;
 
 import lombok.Data;
 

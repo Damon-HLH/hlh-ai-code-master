@@ -9,7 +9,7 @@ import com.hlh.hlhaicodemaster.constant.UserConstant;
 import com.hlh.hlhaicodemaster.exception.BusinessException;
 import com.hlh.hlhaicodemaster.exception.ErrorCode;
 import com.hlh.hlhaicodemaster.exception.ThrowUtils;
-import com.hlh.hlhaicodemaster.model.dto.*;
+import com.hlh.hlhaicodemaster.model.dto.user.*;
 import com.hlh.hlhaicodemaster.model.vo.LoginUserVO;
 import com.hlh.hlhaicodemaster.model.vo.UserVO;
 import com.mybatisflex.core.paginate.Page;

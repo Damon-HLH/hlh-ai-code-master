@@ -3,7 +3,7 @@ package com.hlh.hlhaicodemaster.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
-import com.hlh.hlhaicodemaster.model.dto.UserQueryRequest;
+import com.hlh.hlhaicodemaster.model.dto.user.UserQueryRequest;
 import com.hlh.hlhaicodemaster.model.enums.UserRoleEnum;
 import com.hlh.hlhaicodemaster.exception.BusinessException;
 import com.hlh.hlhaicodemaster.exception.ErrorCode;
