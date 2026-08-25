@@ -2,10 +2,14 @@ package com.hlh.hlhaicodemaster.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
+import com.hlh.hlhaicodemaster.core.AiCodeGeneratorFacade;
 import com.hlh.hlhaicodemaster.exception.BusinessException;
 import com.hlh.hlhaicodemaster.exception.ErrorCode;
+import com.hlh.hlhaicodemaster.exception.ThrowUtils;
 import com.hlh.hlhaicodemaster.model.dto.app.AppQueryRequest;
 import com.hlh.hlhaicodemaster.model.entity.User;
+import com.hlh.hlhaicodemaster.model.enums.CodeGenTypeEnum;
 import com.hlh.hlhaicodemaster.model.vo.AppVO;
 import com.hlh.hlhaicodemaster.model.vo.UserVO;
 import com.hlh.hlhaicodemaster.service.UserService;
@@ -16,6 +20,8 @@ import com.hlh.hlhaicodemaster.mapper.AppMapper;
 import com.hlh.hlhaicodemaster.service.AppService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +38,39 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private AiCodeGeneratorFacade aiCodeGeneratorFacade;
+
+    /**
+     * 通过对话生成网页代码应用
+     *
+     * @param appId
+     * @param message
+     * @param loginUser
+     * @return
+     */
+    @Override
+    public Flux<String> chatToGenCode(Long appId, String message, User loginUser) {
+        //1. 参数校验
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 id 错误");
+        ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "提示词不能为空");
+        //2. 查询应用信息
+        App app = getById(appId);
+        ThrowUtils.throwIf(app == null,ErrorCode.NOT_FOUND_ERROR,"应用不存在");
+        //3. 权限校验，仅本人可以和自己的应用对话
+        if(!app.getUserId().equals(loginUser.getId())){
+            throw new BusinessException(ErrorCode.FORBIDDEN_ERROR, "没有权限访问该应用");
+        }
+        //4. 获取应用的代码生成类型
+        String codeGenType = app.getCodeGenType();
+        CodeGenTypeEnum codeGenTypeEnum = CodeGenTypeEnum.getEnumByValue(codeGenType);
+        if(codeGenTypeEnum ==null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "代码生成类型错误" );
+        }
+        //5. 调用 AI 生成代码
+        return aiCodeGeneratorFacade.generateAndSaveCodeStream(message,codeGenTypeEnum,appId);
+    }
 
     @Override
     public AppVO getAppVO(App app) {

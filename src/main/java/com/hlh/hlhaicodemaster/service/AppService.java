@@ -1,10 +1,13 @@
 package com.hlh.hlhaicodemaster.service;
 
 import com.hlh.hlhaicodemaster.model.dto.app.AppQueryRequest;
+import com.hlh.hlhaicodemaster.model.entity.User;
 import com.hlh.hlhaicodemaster.model.vo.AppVO;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
 import com.hlh.hlhaicodemaster.model.entity.App;
+import reactor.core.publisher.Flux;
+
 import java.util.List;
 
 /**
@@ -13,6 +16,15 @@ import java.util.List;
  * @author <a href="https://github.com/Damon-HLH">hlh</a>
  */
 public interface AppService extends IService<App> {
+
+    /**
+     * 通过对话生成网页代码应用
+     * @param appId
+     * @param message
+     * @param loginUser
+     * @return
+     */
+    Flux<String> chatToGenCode(Long appId, String message, User loginUser);
 
     /**
      * 获取应用封装类
@@ -34,4 +46,5 @@ public interface AppService extends IService<App> {
      * @return
      */
     List<AppVO> getAppVOList(List<App> appList);
+
 }
