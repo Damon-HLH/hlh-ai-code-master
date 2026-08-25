@@ -13,10 +13,7 @@ import com.hlh.hlhaicodemaster.constant.UserConstant;
 import com.hlh.hlhaicodemaster.exception.BusinessException;
 import com.hlh.hlhaicodemaster.exception.ErrorCode;
 import com.hlh.hlhaicodemaster.exception.ThrowUtils;
-import com.hlh.hlhaicodemaster.model.dto.app.AppAddRequest;
-import com.hlh.hlhaicodemaster.model.dto.app.AppAdminUpdateRequest;
-import com.hlh.hlhaicodemaster.model.dto.app.AppQueryRequest;
-import com.hlh.hlhaicodemaster.model.dto.app.AppUpdateRequest;
+import com.hlh.hlhaicodemaster.model.dto.app.*;
 import com.hlh.hlhaicodemaster.model.entity.User;
 import com.hlh.hlhaicodemaster.model.enums.CodeGenTypeEnum;
 import com.hlh.hlhaicodemaster.model.vo.AppVO;
@@ -52,20 +49,28 @@ public class AppController {
     @Resource
     private UserService userService;
 
+    /**
+     * 聊天生成代码（流式返回）
+     *
+     * @param appId
+     * @param message
+     * @param request
+     * @return
+     */
     @GetMapping(value = "/chat/gen/code", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId,
-                                      @RequestParam String message,
-                                      HttpServletRequest request){
+                                                       @RequestParam String message,
+                                                       HttpServletRequest request) {
         // 参数校验
-        ThrowUtils.throwIf(appId == null || appId<=0,ErrorCode.PARAMS_ERROR,"应用 id 错误");
-        ThrowUtils.throwIf(StrUtil.isBlank(message),ErrorCode.PARAMS_ERROR,"提示词不能为空");
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 id 错误");
+        ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "提示词不能为空");
         // 获取当前登录用户
         User loginUser = userService.getLoginUser(request);
         // 调用服务生成代码（SSE 流式返回）
         Flux<String> contentFlux = appService.chatToGenCode(appId, message, loginUser);
         return contentFlux
                 .map(chunk -> {
-                    Map<String,String> wrapper = Map.of("d",chunk);
+                    Map<String, String> wrapper = Map.of("d", chunk);
                     String jsonData = JSONUtil.toJsonStr(wrapper);
                     return ServerSentEvent.<String>builder()
                             .data(jsonData)
@@ -79,6 +84,26 @@ public class AppController {
                                 .build()
                 ));
     }
+
+    /**
+     * 应用部署
+     *
+     * @param appDeployRequest 部署请求
+     * @param request          请求
+     * @return 部署 URL
+     */
+    @PostMapping("/deploy")
+    public BaseResponse<String> deployApp(@RequestBody AppDeployRequest appDeployRequest, HttpServletRequest request) {
+        ThrowUtils.throwIf(appDeployRequest == null, ErrorCode.PARAMS_ERROR);
+        Long appId = appDeployRequest.getAppId();
+        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 ID 不能为空");
+        // 获取当前登录用户
+        User loginUser = userService.getLoginUser(request);
+        // 调用服务部署应用
+        String deployUrl = appService.deployApp(appId, loginUser);
+        return ResultUtils.success(deployUrl);
+    }
+
 
     /**
      * 创建应用
