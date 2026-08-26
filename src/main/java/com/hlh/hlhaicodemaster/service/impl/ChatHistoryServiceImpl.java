@@ -1,5 +1,6 @@
 package com.hlh.hlhaicodemaster.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import com.hlh.hlhaicodemaster.constant.UserConstant;
 import com.hlh.hlhaicodemaster.exception.ErrorCode;
@@ -15,11 +16,16 @@ import com.mybatisflex.spring.service.impl.ServiceImpl;
 import com.hlh.hlhaicodemaster.model.entity.ChatHistory;
 import com.hlh.hlhaicodemaster.mapper.ChatHistoryMapper;
 import com.hlh.hlhaicodemaster.service.ChatHistoryService;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 对话历史 服务层实现。
@@ -27,6 +33,7 @@ import java.time.LocalDateTime;
  * @author <a href="https://github.com/Damon-HLH">hlh</a>
  */
 @Service
+@Slf4j
 public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatHistory> implements ChatHistoryService {
 
     @Resource
@@ -81,6 +88,55 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
         QueryWrapper queryWrapper = this.getQueryWrapper(queryRequest);
         // 查询数据
         return this.page(Page.of(1, pageSize), queryWrapper);
+    }
+
+    /**
+     * 对话记忆初始化时，需要从数据库中加载历史对话到记忆中
+     *
+     * 几个重要细节：
+     * 1. 查询起始点设置为1而不是0，这是为了排除最新的用户消息。因为在对话流程中，用
+     * 户消息被添加到数据库后，AI服务也会自动将用户消息添加到记忆中，如果不排除会导致消息重复。
+     * 2. 注意反转从数据库中查到的消息列表，确保加载到记忆中的消息是按时间正序的。
+     * 3. 加载前先清理Redis中的历史对话记忆，防止重复加载。
+     * 然后就可以在初始化AlService的对话记忆时调用了，这相当于是懒加载，对话时才会加载记忆，节约内存。
+     *
+     * @param appId
+     * @param chatMemory
+     * @param maxCount   最多加载多少条
+     * @return
+     */
+    @Override
+    public int loadChatHistoryToMemory(long appId, MessageWindowChatMemory chatMemory, int maxCount) {
+        try {
+            QueryWrapper queryWrapper = QueryWrapper.create()
+                    .eq(ChatHistory::getAppId, appId)
+                    .orderBy(ChatHistory::getCreateTime, false)
+                    .limit(1, maxCount); //!!! 从1开始加载，因为之前将第一条用户消息加入到数据库后，就创建了AI Service实例，载入了记忆
+            List<ChatHistory> chatHistoryList = this.list(queryWrapper);
+            if (CollUtil.isEmpty(chatHistoryList)) {
+                return 0;
+            }
+            // 翻转列表，确保按照时间正序（老的在前，新的再后(下)）
+            chatHistoryList = chatHistoryList.reversed();
+            // 按照时间顺序将消息添加到记忆中
+            int loadedCount = 0;
+            // 先清理Redis历史缓存，防止重复加载
+            chatMemory.clear();
+            for (ChatHistory history : chatHistoryList) {
+                if (ChatHistoryMessageTypeEnum.USER.getValue().equals(history.getMessageType())) {
+                    chatMemory.add(UserMessage.from(history.getMessage()));
+                    loadedCount++;
+                } else if (ChatHistoryMessageTypeEnum.AI.getValue().equals(history.getMessageType())) {
+                    chatMemory.add(AiMessage.from(history.getMessage()));
+                    loadedCount++;
+                }
+            }
+            log.info("成功为 appId: {} 加载了 {} 条历史对话", appId, loadedCount);
+            return loadedCount;
+        } catch (Exception e) {
+            log.error("加载历史对话失败，appId: {}, error: {}", appId, e.getMessage(), e);
+            return 0;
+        }
     }
 
     /**

@@ -1,6 +1,7 @@
 package com.hlh.hlhaicodemaster.core;
 
 import com.hlh.hlhaicodemaster.ai.AiCodeGeneratorService;
+import com.hlh.hlhaicodemaster.ai.AiCodeGeneratorServiceFactory;
 import com.hlh.hlhaicodemaster.ai.model.HtmlCodeResult;
 import com.hlh.hlhaicodemaster.ai.model.MultiFileCodeResult;
 import com.hlh.hlhaicodemaster.core.parser.CodeParserExecutor;
@@ -22,7 +23,7 @@ import java.io.File;
 public class AiCodeGeneratorFacade {
 
     @Resource
-    private AiCodeGeneratorService aiCodeGeneratorService;
+    private AiCodeGeneratorServiceFactory aiCodeGeneratorServiceFactory;
 
     /**
      * 一、普通统一入口（同步，直接返回代码文件）：
@@ -37,6 +38,8 @@ public class AiCodeGeneratorFacade {
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "代码生成类型不能为空");
         }
+        // 根据 AppId 拿到对应的 AI 服务实例
+        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId);
         return switch (codeGenTypeEnum) {
             case HTML -> {
                 HtmlCodeResult htmlCodeResult = aiCodeGeneratorService.generateHtmlCode(userMessage);
@@ -66,6 +69,8 @@ public class AiCodeGeneratorFacade {
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "代码生成类型不能为空");
         }
+        // 根据 AppId 拿到对应的 AI 服务实例
+        AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId);
         return switch (codeGenTypeEnum) {
             case HTML -> {
                 Flux<String> codeStream = aiCodeGeneratorService.generateHtmlCodeStream(userMessage);
