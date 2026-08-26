@@ -43,3 +43,7 @@ knife4j:
   setting:
     language: zh_cn
 
+# 日志级别配置，LangChain4j 的 LoggingHttpClient 需要 DEBUG 级别才能输出请求/响应日志
+logging:
+  level:
+    dev.langchain4j: DEBUG
