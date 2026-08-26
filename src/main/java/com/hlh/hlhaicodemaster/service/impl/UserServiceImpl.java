@@ -100,7 +100,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (user == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在或密码错误");
         }
-        // 3. 记录用户的登录态
+        // 3. 记录用户的登录态 保存到redis
         request.getSession().setAttribute(USER_LOGIN_STATE, user);
         // 4. 获得脱敏后的用户信息
         return this.getLoginUserVO(user);
