@@ -5,9 +5,12 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.hlh.hlhaicodemaster.ai.model.meesage.*;
+import com.hlh.hlhaicodemaster.constant.AppConstant;
+import com.hlh.hlhaicodemaster.core.builder.VueProjectBuilder;
 import com.hlh.hlhaicodemaster.model.entity.User;
 import com.hlh.hlhaicodemaster.model.enums.ChatHistoryMessageTypeEnum;
 import com.hlh.hlhaicodemaster.service.ChatHistoryService;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -22,6 +25,9 @@ import java.util.Set;
 @Slf4j
 @Component
 public class JsonMessageStreamHandler {
+
+    @Resource
+    private VueProjectBuilder vueProjectBuilder;
 
     /**
      * 处理 TokenStream（VUE_PROJECT）
@@ -48,9 +54,12 @@ public class JsonMessageStreamHandler {
                 })
                 .filter(StrUtil::isNotEmpty) // 过滤空字串
                 .doOnComplete(() -> {
-                    // 流式响应完成后，添加 AI 消息到对话历史(这里已经得到了经过json处理的响应结果，规范化了响应格式，最终传给前端和保存数据化库的AI输出是一致的)
+                    // 流式响应完成后，添加 AI 消息到对话历史(这里已经得到经过json处理的响应结果，规范化了响应格式，最终传给前端和保存数据化库的AI输出是一致的)
                     String aiResponse = chatHistoryStringBuilder.toString();
                     chatHistoryService.addChatMessage(appId, aiResponse, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+                    String projectPath = AppConstant.CODE_OUTPUT_ROOT_DIR+"/vue_project_"+appId;
+                    // 在所有代码生成并写入文件完成后（AI用写入文件工具），就可以去构建Vue项目（npm install && npm run build）
+                    vueProjectBuilder.buildProjectAsync(projectPath);
                 })
                 .doOnError(error -> {
                     // 如果AI回复失败，也要记录错误消息
