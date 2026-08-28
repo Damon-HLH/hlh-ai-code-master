@@ -19,6 +19,7 @@ import com.hlh.hlhaicodemaster.model.enums.CodeGenTypeEnum;
 import com.hlh.hlhaicodemaster.model.vo.AppVO;
 import com.hlh.hlhaicodemaster.model.vo.UserVO;
 import com.hlh.hlhaicodemaster.service.ChatHistoryService;
+import com.hlh.hlhaicodemaster.service.ScreenshotService;
 import com.hlh.hlhaicodemaster.service.UserService;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.spring.service.impl.ServiceImpl;
@@ -62,6 +63,9 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     @Resource
     private VueProjectBuilder vueProjectBuilder;
+
+    @Resource
+    private ScreenshotService screenshotService;
 
     /**
      * 通过对话生成网页代码应用
@@ -160,8 +164,31 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         updateApp.setDeployedTime(LocalDateTime.now());
         boolean updateResult = this.updateById(updateApp);
         ThrowUtils.throwIf(!updateResult, ErrorCode.OPERATION_ERROR, "更新应用部署信息失败");
-        // 10. 返回可访问的 URL
-        return String.format("%s/%s/", AppConstant.CODE_DEPLOY_HOST, deployKey);
+        // 10. 返回可访问的 URL 地址，给用户
+        String appDeployUrl =  String.format("%s/%s/", AppConstant.CODE_DEPLOY_HOST, deployKey);
+        // 11. 异步生成截图并且更新应用封面
+        generateAppScreenshotAsync(appId, appDeployUrl);
+        return appDeployUrl;
+    }
+
+    /**
+     * 异步生成应用截图并更新数据库封面
+     * @param appId
+     * @param appDeployUrl
+     */
+    @Override
+    public void generateAppScreenshotAsync(Long appId,String appDeployUrl){
+        // 使用虚拟线程并执行
+        Thread.startVirtualThread(() -> {
+                // 调用截图服务生成并上传截图
+                String screenshotUrl = screenshotService.generateAndUploadScreenshot(appDeployUrl);
+                // 更新数据库的封面
+                App updateApp =new App();
+                updateApp.setId(appId);
+                updateApp.setCover(screenshotUrl);
+                boolean updated = this.updateById(updateApp);
+                ThrowUtils.throwIf(!updated, ErrorCode.OPERATION_ERROR, "更新应用封面失败");
+        });
     }
 
     @Override
