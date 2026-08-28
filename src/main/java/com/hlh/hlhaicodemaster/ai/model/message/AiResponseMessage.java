@@ -1,4 +1,4 @@
-package com.hlh.hlhaicodemaster.ai.model.meesage;
+package com.hlh.hlhaicodemaster.ai.model.message;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;

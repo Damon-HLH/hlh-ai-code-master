@@ -4,7 +4,7 @@ import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
-import com.hlh.hlhaicodemaster.ai.model.meesage.*;
+import com.hlh.hlhaicodemaster.ai.model.message.*;
 import com.hlh.hlhaicodemaster.constant.AppConstant;
 import com.hlh.hlhaicodemaster.core.builder.VueProjectBuilder;
 import com.hlh.hlhaicodemaster.model.entity.User;
