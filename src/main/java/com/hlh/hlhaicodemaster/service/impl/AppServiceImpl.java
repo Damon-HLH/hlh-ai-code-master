@@ -5,6 +5,7 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
+import com.hlh.hlhaicodemaster.ai.AiCodeGenTypeRoutingService;
 import com.hlh.hlhaicodemaster.constant.AppConstant;
 import com.hlh.hlhaicodemaster.core.AiCodeGeneratorFacade;
 import com.hlh.hlhaicodemaster.core.builder.VueProjectBuilder;
@@ -12,6 +13,7 @@ import com.hlh.hlhaicodemaster.core.handler.StreamHandlerExecutor;
 import com.hlh.hlhaicodemaster.exception.BusinessException;
 import com.hlh.hlhaicodemaster.exception.ErrorCode;
 import com.hlh.hlhaicodemaster.exception.ThrowUtils;
+import com.hlh.hlhaicodemaster.model.dto.app.AppAddRequest;
 import com.hlh.hlhaicodemaster.model.dto.app.AppQueryRequest;
 import com.hlh.hlhaicodemaster.model.entity.User;
 import com.hlh.hlhaicodemaster.model.enums.ChatHistoryMessageTypeEnum;
@@ -67,6 +69,10 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
     @Resource
     private ScreenshotService screenshotService;
 
+    @Resource
+    private AiCodeGenTypeRoutingService aiCodeGenTypeRoutingService;
+
+
     /**
      * 通过对话生成网页代码应用
      *
@@ -100,6 +106,28 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         //7. 收集 AI 响应的内容，并且在完成后保存记录到对话历史
         return streamHandlerExecutor.doExecute(codeStream, chatHistoryService, appId, loginUser, codeGenTypeEnum);
     }
+
+    @Override
+    public Long createApp(AppAddRequest appAddRequest, User loginUser) {
+        // 参数校验
+        String initPrompt = appAddRequest.getInitPrompt();
+        ThrowUtils.throwIf(StrUtil.isBlank(initPrompt), ErrorCode.PARAMS_ERROR, "初始化 prompt 不能为空");
+        // 构造入库对象
+        App app = new App();
+        BeanUtil.copyProperties(appAddRequest, app);
+        app.setUserId(loginUser.getId());
+        // 应用名称暂时为 initPrompt 前 12 位
+        app.setAppName(initPrompt.substring(0, Math.min(initPrompt.length(), 12)));
+        // 使用 AI 智能选择代码生成类型
+        CodeGenTypeEnum selectedCodeGenType = aiCodeGenTypeRoutingService.routeCodeGenType(initPrompt);
+        app.setCodeGenType(selectedCodeGenType.getValue());
+        // 插入数据库
+        boolean result = this.save(app);
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
+        log.info("应用创建成功，ID: {}, 类型: {}", app.getId(), selectedCodeGenType.getValue());
+        return app.getId();
+    }
+
 
     /**
      * 应用部署，返回应用可访问的URL
@@ -165,7 +193,7 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         boolean updateResult = this.updateById(updateApp);
         ThrowUtils.throwIf(!updateResult, ErrorCode.OPERATION_ERROR, "更新应用部署信息失败");
         // 10. 返回可访问的 URL 地址，给用户
-        String appDeployUrl =  String.format("%s/%s/", AppConstant.CODE_DEPLOY_HOST, deployKey);
+        String appDeployUrl = String.format("%s/%s/", AppConstant.CODE_DEPLOY_HOST, deployKey);
         // 11. 异步生成截图并且更新应用封面
         generateAppScreenshotAsync(appId, appDeployUrl);
         return appDeployUrl;
@@ -173,21 +201,22 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
 
     /**
      * 异步生成应用截图并更新数据库封面
+     *
      * @param appId
      * @param appDeployUrl
      */
     @Override
-    public void generateAppScreenshotAsync(Long appId,String appDeployUrl){
+    public void generateAppScreenshotAsync(Long appId, String appDeployUrl) {
         // 使用虚拟线程并执行
         Thread.startVirtualThread(() -> {
-                // 调用截图服务生成并上传截图
-                String screenshotUrl = screenshotService.generateAndUploadScreenshot(appDeployUrl);
-                // 更新数据库的封面
-                App updateApp =new App();
-                updateApp.setId(appId);
-                updateApp.setCover(screenshotUrl);
-                boolean updated = this.updateById(updateApp);
-                ThrowUtils.throwIf(!updated, ErrorCode.OPERATION_ERROR, "更新应用封面失败");
+            // 调用截图服务生成并上传截图
+            String screenshotUrl = screenshotService.generateAndUploadScreenshot(appDeployUrl);
+            // 更新数据库的封面
+            App updateApp = new App();
+            updateApp.setId(appId);
+            updateApp.setCover(screenshotUrl);
+            boolean updated = this.updateById(updateApp);
+            ThrowUtils.throwIf(!updated, ErrorCode.OPERATION_ERROR, "更新应用封面失败");
         });
     }
 
