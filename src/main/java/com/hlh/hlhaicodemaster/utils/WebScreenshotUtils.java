@@ -40,18 +40,18 @@ public class WebScreenshotUtils {
         final int DEFAULT_HEIGHT = 900;
         webDriver = initChromeDriver(DEFAULT_WIDTH, DEFAULT_HEIGHT);
 
-        // 注册 JVM 关闭钩子
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            log.info("JVM 正在关闭，准备清理 Chrome 进程...");
-            if (webDriver != null) {
-                try {
-                    webDriver.quit(); // 这样才能真正在应用停止时杀死 Chrome 进程
-                    log.info("Chrome 进程清理完毕");
-                } catch (Exception e) {
-                    log.error("清理 Chrome 进程失败", e);
-                }
-            }
-        }));
+//        // 注册 JVM 关闭钩子
+//        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+//            log.info("JVM 正在关闭，准备清理 Chrome 进程...");
+//            if (webDriver != null) {
+//                try {
+//                    webDriver.quit(); // 这样才能真正在应用停止时杀死 Chrome 进程
+//                    log.info("Chrome 进程清理完毕");
+//                } catch (Exception e) {
+//                    log.error("清理 Chrome 进程失败", e);
+//                }
+//            }
+//        }));
     }
 
     /**

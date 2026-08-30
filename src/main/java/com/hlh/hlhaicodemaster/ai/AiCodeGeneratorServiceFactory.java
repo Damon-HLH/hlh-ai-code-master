@@ -2,7 +2,7 @@ package com.hlh.hlhaicodemaster.ai;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.hlh.hlhaicodemaster.ai.tools.FileWriteTool;
+import com.hlh.hlhaicodemaster.ai.tools.*;
 import com.hlh.hlhaicodemaster.exception.BusinessException;
 import com.hlh.hlhaicodemaster.exception.ErrorCode;
 import com.hlh.hlhaicodemaster.model.enums.CodeGenTypeEnum;
@@ -17,6 +17,7 @@ import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
 import java.time.Duration;
 
 /**
@@ -42,6 +43,9 @@ public class AiCodeGeneratorServiceFactory {
 
     @Resource
     private ChatHistoryService chatHistoryService;
+
+    @Resource
+    private ToolManager toolManager;
 
 
     // 利用Caffeine缓存来存储每次构造完appld对应的AI服务实例
@@ -73,7 +77,7 @@ public class AiCodeGeneratorServiceFactory {
         //根据 AppId 这个key，去本地缓存中拿AI Services服务；如果不存在，则生成一个 AI Service 实例
 //        return serviceCache.get(appId, id -> createAiCodeGeneratorService(id));
         // getOrdefault
-        return getAiCodeGeneratorService(appId,CodeGenTypeEnum.HTML);
+        return getAiCodeGeneratorService(appId, CodeGenTypeEnum.HTML);
     }
 
     /**
@@ -115,7 +119,7 @@ public class AiCodeGeneratorServiceFactory {
                     .streamingChatModel(reasoningStreamingChatModel)
                     .chatMemoryProvider(memoryId -> chatMemory)
                     // 可以调用工具
-                    .tools(new FileWriteTool())
+                    .tools(toolManager.getAllTools())
                     // 处理工具调用幻觉问题
                     .hallucinatedToolNameStrategy(toolExecutionRequest ->
                             ToolExecutionResultMessage.from(toolExecutionRequest,
@@ -145,6 +149,7 @@ public class AiCodeGeneratorServiceFactory {
 
     /**
      * 根据 appId 和代码生成类型构建缓存键
+     *
      * @param appId
      * @param codeGenType
      * @return
