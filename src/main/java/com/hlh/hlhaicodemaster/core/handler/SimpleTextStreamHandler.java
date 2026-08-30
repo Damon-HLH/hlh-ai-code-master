@@ -34,14 +34,22 @@ public class SimpleTextStreamHandler {
                     return chunk;
                 })
                 .doOnComplete(() -> {
-                    // 流式响应完成后，添加AI消息到对话历史
+                    // 流式响应完成后，添加AI消息到对话历史（落库失败仅记日志，不能阻断流的正常结束）
                     String aiResponse = aiResponseBuilder.toString();
-                    chatHistoryService.addChatMessage(appId, aiResponse, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+                    try {
+                        chatHistoryService.addChatMessage(appId, aiResponse, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+                    } catch (Exception e) {
+                        log.error("保存 AI 回复到对话历史失败，appId: {}, 消息长度: {}", appId, aiResponse.length(), e);
+                    }
                 })
                 .doOnError(error -> {
-                    // 如果AI回复失败，也要记录错误消息
-                    String errorMessage = "AI回复失败: " + error.getMessage();
-                    chatHistoryService.addChatMessage(appId, errorMessage, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+                    // 如果AI回复失败，也要记录错误消息（落库失败仅记日志，避免二次异常把错误信号冲掉）
+                    try {
+                        String errorMessage = "AI回复失败: " + error.getMessage();
+                        chatHistoryService.addChatMessage(appId, errorMessage, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+                    } catch (Exception e) {
+                        log.error("记录 AI 错误消息到对话历史失败，appId: {}", appId, e);
+                    }
                 });
     }
 }

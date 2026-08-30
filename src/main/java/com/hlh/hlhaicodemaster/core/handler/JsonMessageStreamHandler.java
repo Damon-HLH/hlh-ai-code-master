@@ -5,6 +5,8 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.hlh.hlhaicodemaster.ai.model.message.*;
+import com.hlh.hlhaicodemaster.ai.tools.BaseTool;
+import com.hlh.hlhaicodemaster.ai.tools.ToolManager;
 import com.hlh.hlhaicodemaster.constant.AppConstant;
 import com.hlh.hlhaicodemaster.core.builder.VueProjectBuilder;
 import com.hlh.hlhaicodemaster.model.entity.User;
@@ -56,15 +58,24 @@ public class JsonMessageStreamHandler {
                 .doOnComplete(() -> {
                     // 流式响应完成后，添加 AI 消息到对话历史(这里已经得到经过json处理的响应结果，规范化了响应格式，最终传给前端和保存数据化库的AI输出是一致的)
                     String aiResponse = chatHistoryStringBuilder.toString();
-                    chatHistoryService.addChatMessage(appId, aiResponse, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+                    try {
+                        chatHistoryService.addChatMessage(appId, aiResponse, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+                    } catch (Exception e) {
+                        // 历史记录落库失败不能阻断流程，否则后续的 Vue 项目构建也不会被触发，仅记录日志，流仍正常结束给前端发 done 事件。
+                        log.error("保存 AI 回复到对话历史失败，appId: {}, 消息长度: {}", appId, aiResponse.length(), e);
+                    }
                     String projectPath = AppConstant.CODE_OUTPUT_ROOT_DIR+"/vue_project_"+appId;
                     // 在所有代码生成并写入文件完成后（AI用写入文件工具），就可以去构建Vue项目（npm install && npm run build）
                     vueProjectBuilder.buildProjectAsync(projectPath);
                 })
                 .doOnError(error -> {
-                    // 如果AI回复失败，也要记录错误消息
-                    String errorMessage = "AI回复失败: " + error.getMessage();
-                    chatHistoryService.addChatMessage(appId, errorMessage, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+                    // 如果AI回复失败，也要记录错误消息（落库失败仅记日志，避免二次异常把错误信号冲掉）
+                    try {
+                        String errorMessage = "AI回复失败: " + error.getMessage();
+                        chatHistoryService.addChatMessage(appId, errorMessage, ChatHistoryMessageTypeEnum.AI.getValue(), loginUser.getId());
+                    } catch (Exception e) {
+                        log.error("记录 AI 错误消息到对话历史失败，appId: {}", appId, e);
+                    }
                 });
     }
 

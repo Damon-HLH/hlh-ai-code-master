@@ -3,7 +3,6 @@ package com.hlh.hlhaicodemaster.controller;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
-import com.hlh.hlhaicodemaster.ai.AiCodeGenTypeRoutingService;
 import com.hlh.hlhaicodemaster.annotation.AuthCheck;
 import com.hlh.hlhaicodemaster.common.BaseResponse;
 import com.hlh.hlhaicodemaster.common.DeleteRequest;
@@ -15,7 +14,6 @@ import com.hlh.hlhaicodemaster.exception.ErrorCode;
 import com.hlh.hlhaicodemaster.exception.ThrowUtils;
 import com.hlh.hlhaicodemaster.model.dto.app.*;
 import com.hlh.hlhaicodemaster.model.entity.User;
-import com.hlh.hlhaicodemaster.model.enums.CodeGenTypeEnum;
 import com.hlh.hlhaicodemaster.model.vo.AppVO;
 import com.hlh.hlhaicodemaster.service.ProjectDownloadService;
 import com.hlh.hlhaicodemaster.service.UserService;
@@ -24,6 +22,7 @@ import com.mybatisflex.core.query.QueryWrapper;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
@@ -42,6 +41,7 @@ import java.util.Map;
  *
  * @author <a href="https://github.com/Damon-HLH">hlh</a>
  */
+@Slf4j
 @RestController
 @RequestMapping("/app")
 public class AppController {
@@ -67,28 +67,56 @@ public class AppController {
     public Flux<ServerSentEvent<String>> chatToGenCode(@RequestParam Long appId,
                                                        @RequestParam String message,
                                                        HttpServletRequest request) {
-        // 参数校验
-        ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 id 错误");
-        ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "提示词不能为空");
-        // 获取当前登录用户
-        User loginUser = userService.getLoginUser(request);
-        // 调用服务生成代码（SSE 流式返回）
-        Flux<String> contentFlux = appService.chatToGenCode(appId, message, loginUser);
-        return contentFlux
-                .map(chunk -> {
-                    Map<String, String> wrapper = Map.of("d", chunk);
-                    String jsonData = JSONUtil.toJsonStr(wrapper);
-                    return ServerSentEvent.<String>builder()
-                            .data(jsonData)
-                            .build();
-                })
-                .concatWith(Mono.just(
-                        // 发送结束事件
-                        ServerSentEvent.<String>builder()
-                                .event("done")
-                                .data("")
-                                .build()
-                ));
+        try {
+            // 参数校验
+            ThrowUtils.throwIf(appId == null || appId <= 0, ErrorCode.PARAMS_ERROR, "应用 id 错误");
+            ThrowUtils.throwIf(StrUtil.isBlank(message), ErrorCode.PARAMS_ERROR, "提示词不能为空");
+            // 获取当前登录用户
+            User loginUser = userService.getLoginUser(request);
+            // 调用服务生成代码（SSE 流式返回）
+            Flux<String> contentFlux = appService.chatToGenCode(appId, message, loginUser);
+            return contentFlux
+                    .map(chunk -> {
+                        Map<String, String> wrapper = Map.of("d", chunk);
+                        String jsonData = JSONUtil.toJsonStr(wrapper);
+                        return ServerSentEvent.<String>builder()
+                                .data(jsonData)
+                                .build();
+                    })
+                    .concatWith(Mono.just(
+                            // 发送结束事件
+                            ServerSentEvent.<String>builder()
+                                    .event("done")
+                                    .data("")
+                                    .build()
+                    ))
+                    // 流过程中的异常统一转为 business-error 事件下发（前端已监听该事件），避免 SSE 异常中断及全局异常处理器无法序列化到 text/event-stream 的连锁报错
+                    .onErrorResume(error -> {
+                        log.error("流式生成代码过程异常，appId: {}", appId, error);
+                        return Flux.just(buildBusinessErrorEvent(error));
+                    });
+        } catch (Exception e) {
+            // 同步阶段异常（参数校验、未登录、无权限等）也转为 business-error 事件，保证 SSE 响应格式统一
+            log.error("发起生成代码失败，appId: {}", appId, e);
+            return Flux.just(buildBusinessErrorEvent(e));
+        }
+    }
+
+    /**
+     * 构建 SSE 业务错误事件，前端 AppChatPage 已注册 business-error 事件监听，可直接展示错误信息并优雅关闭连接。
+     * 注意：该接口 Content-Type 为 text/event-stream，不能抛异常给全局异常处理器返回 JSON。
+     *
+     * @param error 异常
+     * @return 错误事件
+     */
+    private ServerSentEvent<String> buildBusinessErrorEvent(Throwable error) {
+        // 业务异常直接透出提示信息，其他异常统一兜底文案，避免暴露内部细节
+        String errorMessage = (error instanceof BusinessException) ? error.getMessage() : "生成过程中出现错误，请重试";
+        String jsonData = JSONUtil.toJsonStr(Map.of("code", 500, "message", errorMessage));
+        return ServerSentEvent.<String>builder()
+                .event("business-error")
+                .data(jsonData)
+                .build();
     }
 
     /**
