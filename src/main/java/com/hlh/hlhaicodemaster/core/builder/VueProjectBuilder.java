@@ -1,10 +1,14 @@
 package com.hlh.hlhaicodemaster.core.builder;
 
-import cn.hutool.core.util.RuntimeUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 
@@ -117,11 +121,12 @@ public class VueProjectBuilder {
     private boolean executeCommand(File workingDir, String command, int timeoutSeconds) {
         try {
             log.info("在目录 {} 中执行命令: {}", workingDir.getAbsolutePath(), command);
-            Process process = RuntimeUtil.exec(
-                    null,
-                    workingDir,
-                    command.split("\\s+") // 命令分割为数组
-            );
+            ProcessBuilder processBuilder = new ProcessBuilder(command.split("\\s+"));
+            processBuilder.directory(workingDir);
+            Process process = processBuilder.start();
+            // 并发消费 stdout 和 stderr，避免输出缓冲区满导致子进程阻塞，同时保留完整输出用于失败排查
+            CompletableFuture<String> stdoutFuture = readStreamAsync(process.getInputStream());
+            CompletableFuture<String> stderrFuture = readStreamAsync(process.getErrorStream());
             // 等待进程完成，设置超时
             boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
             if (!finished) {
@@ -130,16 +135,38 @@ public class VueProjectBuilder {
                 return false;
             }
             int exitCode = process.exitValue();
+            String stdout = stdoutFuture.get(5, TimeUnit.SECONDS);
+            String stderr = stderrFuture.get(5, TimeUnit.SECONDS);
             if (exitCode == 0) {
                 log.info("命令执行成功: {}", command);
                 return true;
             } else {
-                log.error("命令执行失败，退出码: {}", exitCode);
+                log.error("命令执行失败，退出码: {}，命令: {}\n标准输出:\n{}\n错误输出:\n{}", exitCode, command, stdout, stderr);
                 return false;
             }
         } catch (Exception e) {
             log.error("执行命令失败: {}, 错误信息: {}", command, e.getMessage());
             return false;
         }
+    }
+
+    /**
+     * 异步读取进程输出流（按平台默认控制台编码读取，Windows 中文环境通常为 GBK）
+     */
+    private CompletableFuture<String> readStreamAsync(InputStream inputStream) {
+        return CompletableFuture.supplyAsync(() -> {
+            StringBuilder sb = new StringBuilder();
+            // Windows 控制台默认 GBK，Linux/Mac 默认 UTF-8
+            String charsetName = isWindows() ? "GBK" : StandardCharsets.UTF_8.name();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, charsetName))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line).append('\n');
+                }
+            } catch (Exception e) {
+                log.warn("读取命令输出失败: {}", e.getMessage());
+            }
+            return sb.toString();
+        });
     }
 }
