@@ -35,6 +35,7 @@ import reactor.core.publisher.Flux;
 
 import java.io.File;
 import java.io.Serializable;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -197,6 +198,90 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         // 11. 异步生成截图并且更新应用封面
         generateAppScreenshotAsync(appId, appDeployUrl);
         return appDeployUrl;
+    }
+
+    /**
+     * 删除应用：删除数据库记录，并清理生成的代码目录和部署目录（尽力删除，文件夹删除失败不影响删除结果）
+     *
+     * @param app 应用信息（需要包含 codeGenType 和 deployKey）
+     * @return 数据库删除结果
+     */
+    @Override
+    public boolean deleteApp(App app) {
+        // 1. 先删除数据库记录，删除成功后再清理文件夹（文件夹删除失败不回滚，不阻塞删除结果）
+        boolean result = this.removeById(app.getId());
+        ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR, "删除应用失败");
+        // 2. 删除生成的应用代码目录：tmp/code_output/{codeGenType}_{appId}
+        deleteCodeGenDirQuietly(app);
+        // 3. 删除部署的应用代码目录：tmp/code_deploy/{deployKey}（仅部署过的应用存在）
+        deleteDeployDirQuietly(app);
+        return result;
+    }
+
+    /**
+     * 删除应用对应的生成代码目录：tmp/code_output/{codeGenType}_{appId}
+     * 三种代码生成方案（HTML、MULTI_FILE、VUE_PROJECT）的目录命名规则统一为 {类型}_{应用ID}，
+     * 分别为 html_{appId}、multi_file_{appId}、vue_project_{appId}
+     */
+    private void deleteCodeGenDirQuietly(App app) {
+        String codeGenType = app.getCodeGenType();
+        // codeGenType 为空说明应用还没有生成过代码，代码目录不存在，直接跳过
+        if (StrUtil.isBlank(codeGenType)) {
+            log.info("应用 codeGenType 为空，跳过生成代码目录删除，appId: {}", app.getId());
+            return;
+        }
+        String sourceDirName = codeGenType + "_" + app.getId();
+        String sourceDirPath = AppConstant.CODE_OUTPUT_ROOT_DIR + File.separator + sourceDirName;
+        deleteAppDirQuietly(sourceDirPath, AppConstant.CODE_OUTPUT_ROOT_DIR, app.getId());
+    }
+
+    /**
+     * 删除应用对应的部署目录：tmp/code_deploy/{deployKey}
+     * 部署目录只有在应用部署后才会复制生成，未部署（deployKey 为空）则跳过
+     */
+    private void deleteDeployDirQuietly(App app) {
+        String deployKey = app.getDeployKey();
+        // deployKey 为空说明应用从未部署过，部署目录不存在，直接跳过
+        if (StrUtil.isBlank(deployKey)) {
+            log.info("应用 deployKey 为空，跳过部署目录删除，appId: {}", app.getId());
+            return;
+        }
+        String deployDirPath = AppConstant.CODE_DEPLOY_ROOT_DIR + File.separator + deployKey;
+        deleteAppDirQuietly(deployDirPath, AppConstant.CODE_DEPLOY_ROOT_DIR, app.getId());
+    }
+
+    /**
+     * 安全删除应用相关目录（尽力删除，不抛异常，不影响删除应用主流程）
+     * 文件夹校验：目录必须位于受管理的根目录内（防止路径异常导致误删），且存在、是目录，才执行删除
+     *
+     * @param dirPath 待删除目录路径
+     * @param rootDir 受管理的根目录（生成目录或部署目录）
+     * @param appId   应用 ID（仅用于日志）
+     */
+    private void deleteAppDirQuietly(String dirPath, String rootDir, Long appId) {
+        try {
+            File dir = new File(dirPath);
+            // 校验目录必须位于受管理的根目录内，防止路径异常导致误删其他目录
+            Path normalizedDir = dir.toPath().normalize().toAbsolutePath();
+            Path normalizedRoot = new File(rootDir).toPath().normalize().toAbsolutePath();
+            if (!normalizedDir.startsWith(normalizedRoot)) {
+                log.warn("目录不在受管理的根目录内，跳过删除，appId: {}, dir: {}", appId, dirPath);
+                return;
+            }
+            // 校验目录存在且是目录，不存在则跳过（代码可能还没生成、或从未部署）
+            if (!dir.exists() || !dir.isDirectory()) {
+                log.info("应用相关目录不存在，跳过删除，appId: {}, dir: {}", appId, dirPath);
+                return;
+            }
+            boolean deleted = FileUtil.del(dir);
+            if (deleted) {
+                log.info("应用相关目录删除成功，appId: {}, dir: {}", appId, dirPath);
+            } else {
+                log.warn("应用相关目录删除失败，可能存在文件占用，appId: {}, dir: {}", appId, dirPath);
+            }
+        } catch (Exception e) {
+            log.error("删除应用相关目录发生异常，不影响应用删除结果，appId: {}, dir: {}, 错误: {}", appId, dirPath, e.getMessage(), e);
+        }
     }
 
     /**

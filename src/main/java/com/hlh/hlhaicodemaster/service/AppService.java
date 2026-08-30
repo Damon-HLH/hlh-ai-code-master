@@ -44,6 +44,14 @@ public interface AppService extends IService<App> {
     String deployApp(Long appId,User loginUser);
 
     /**
+     * 删除应用：删除数据库记录，并清理生成的代码目录和部署目录（尽力删除，文件夹删除失败不影响删除结果）
+     *
+     * @param app 应用信息（需要包含 codeGenType 和 deployKey）
+     * @return 数据库删除结果
+     */
+    boolean deleteApp(App app);
+
+    /**
      * 异步生成应用截图并更新封面
      * @param appId
      * @param appDeployUrl
