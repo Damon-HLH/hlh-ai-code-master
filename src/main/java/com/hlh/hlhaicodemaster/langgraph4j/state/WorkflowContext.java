@@ -1,19 +1,21 @@
 package com.hlh.hlhaicodemaster.langgraph4j.state;
 
 import com.hlh.hlhaicodemaster.langgraph4j.model.ImageResource;
+import com.hlh.hlhaicodemaster.langgraph4j.model.QualityResult;
 import com.hlh.hlhaicodemaster.model.enums.CodeGenTypeEnum;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.bsc.langgraph4j.prebuilt.MessagesState;
+
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
 /**
- * 工作流上下文 - 存储所有状态信息
+ * 工作流上下文 - 存储工作流中所有状态信息
  */
 @Data
 @Builder
@@ -65,6 +67,11 @@ public class WorkflowContext implements Serializable {
      * 构建成功的目录
      */
     private String buildResultDir;
+
+    /**
+     * 质量检查结果
+     */
+    private QualityResult qualityResult;
 
     /**
      * 错误信息

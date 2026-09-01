@@ -1,4 +1,4 @@
-package com.hlh.hlhaicodemaster.langgraph4j;
+package com.hlh.hlhaicodemaster.langgraph4j.workflowsamples;
 
 import lombok.extern.slf4j.Slf4j;
 import org.bsc.langgraph4j.CompiledGraph;

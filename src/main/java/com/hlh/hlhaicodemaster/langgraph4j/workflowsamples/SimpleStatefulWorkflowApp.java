@@ -1,12 +1,12 @@
-package com.hlh.hlhaicodemaster.langgraph4j;
+package com.hlh.hlhaicodemaster.langgraph4j.workflowsamples;
 
-import com.hlh.hlhaicodemaster.langgraph4j.node.*;
 import com.hlh.hlhaicodemaster.langgraph4j.state.WorkflowContext;
 import lombok.extern.slf4j.Slf4j;
 import org.bsc.langgraph4j.CompiledGraph;
 import org.bsc.langgraph4j.GraphRepresentation;
 import org.bsc.langgraph4j.GraphStateException;
 import org.bsc.langgraph4j.NodeOutput;
+import org.bsc.langgraph4j.action.AsyncNodeAction;
 import org.bsc.langgraph4j.prebuilt.MessagesState;
 import org.bsc.langgraph4j.prebuilt.MessagesStateGraph;
 
@@ -14,22 +14,39 @@ import java.util.Map;
 
 import static org.bsc.langgraph4j.StateGraph.END;
 import static org.bsc.langgraph4j.StateGraph.START;
+import static org.bsc.langgraph4j.action.AsyncNodeAction.node_async;
 
 /**
- * 工作流应用（模拟状态流转）
+ * 简化版带状态定义的工作流 - 只定义状态结构，不实现具体流转
  */
 @Slf4j
-public class WorkflowApp {
+public class SimpleStatefulWorkflowApp {
+
+    /**
+     * 创建带状态感知的工作节点
+     */
+    static AsyncNodeAction<MessagesState<String>> makeStatefulNode(String nodeName, String message) {
+        return node_async(state -> {
+            WorkflowContext context = WorkflowContext.getContext(state);
+            log.info("执行节点: {} - {}", nodeName, message);
+            // 只记录当前步骤，不做具体的状态流转
+            if (context != null) {
+                context.setCurrentStep(nodeName);
+            }
+            return WorkflowContext.saveContext(context);
+        });
+    }
 
     public static void main(String[] args) throws GraphStateException {
         // 创建工作流图
         CompiledGraph<MessagesState<String>> workflow = new MessagesStateGraph<String>()
-                // 添加节点 - 使用真实的工作节点
-                .addNode("image_collector", ImageCollectorNode.create())
-                .addNode("prompt_enhancer", PromptEnhancerNode.create())
-                .addNode("router", RouterNode.create())
-                .addNode("code_generator", CodeGeneratorNode.create())
-                .addNode("project_builder", ProjectBuilderNode.create())
+                // 添加节点 - 使用带状态感知的节点
+                .addNode("image_collector", makeStatefulNode("image_collector", "获取图片素材"))
+                .addNode("prompt_enhancer", makeStatefulNode("prompt_enhancer", "增强提示词"))
+                .addNode("router", makeStatefulNode("router", "智能路由选择"))
+                .addNode("code_generator", makeStatefulNode("code_generator", "网站代码生成"))
+                .addNode("project_builder", makeStatefulNode("project_builder", "项目构建"))
+
                 // 添加边
                 .addEdge(START, "image_collector")
                 .addEdge("image_collector", "prompt_enhancer")
@@ -37,6 +54,7 @@ public class WorkflowApp {
                 .addEdge("router", "code_generator")
                 .addEdge("code_generator", "project_builder")
                 .addEdge("project_builder", END)
+
                 // 编译工作流
                 .compile();
 
@@ -45,6 +63,7 @@ public class WorkflowApp {
                 .originalPrompt("创建一个hlh的个人博客网站")
                 .currentStep("初始化")
                 .build();
+
         log.info("初始输入: {}", initialContext.getOriginalPrompt());
         log.info("开始执行工作流");
 
