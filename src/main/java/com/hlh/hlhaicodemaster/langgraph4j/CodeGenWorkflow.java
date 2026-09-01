@@ -27,6 +27,11 @@ import static org.bsc.langgraph4j.action.AsyncEdgeAction.edge_async;
 public class CodeGenWorkflow {
 
     /**
+     * 质检失败后的最大重新生成次数，超过后直接结束，避免循环边无限重试
+     */
+    private static final int MAX_QUALITY_RETRY = 3;
+
+    /**
      * 创建完整的工作流
      */
     public CompiledGraph<MessagesState<String>> createWorkflow() {
@@ -52,7 +57,8 @@ public class CodeGenWorkflow {
                             Map.of(
                                     "build", "project_builder",   // 质检通过且需要构建
                                     "skip_build", END,            // 质检通过但跳过构建
-                                    "fail", "code_generator"      // 质检失败，重新生成
+                                    "fail", "code_generator",     // 质检失败，重新生成（未超重试上限）
+                                    "fail_end", END               // 质检失败且超过重试上限，直接结束
                             ))
                     .addEdge("project_builder", END)
 
@@ -169,9 +175,15 @@ public class CodeGenWorkflow {
     private String routeAfterQualityCheck(MessagesState<String> state) {
         WorkflowContext context = WorkflowContext.getContext(state);
         QualityResult qualityResult = context.getQualityResult();
-        // 如果质检失败，重新生成代码
+        // 如果质检失败，重新生成代码（受重试上限保护，避免无限循环）
         if (qualityResult == null || !qualityResult.getIsValid()) {
-            log.error("代码质检失败，需要重新生成代码");
+            if (context.getQualityRetryCount() >= MAX_QUALITY_RETRY) {
+                log.error("代码质检失败且已达最大重试次数 {}，终止工作流", MAX_QUALITY_RETRY);
+                context.setErrorMessage("代码生成失败：多次质检未通过，请调整需求描述后重试");
+                return "fail_end";
+            }
+            context.setQualityRetryCount(context.getQualityRetryCount() + 1);
+            log.error("代码质检失败，第 {} 次重新生成代码", context.getQualityRetryCount());
             return "fail";
         }
         // 质检通过，使用原有的构建路由逻辑

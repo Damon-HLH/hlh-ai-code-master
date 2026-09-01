@@ -77,7 +77,7 @@ public class AiCodeGeneratorFacade {
         if (codeGenTypeEnum == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "代码生成类型不能为空");
         }
-        // 根据 AppId 和 代码生成类型 拿到对应的 AI 服务实例
+        // 根据 AppId 和 代码生成类型 拿到对应的 AI 服务实例（构建记忆、获取工具调用和利用推理模型）
         AiCodeGeneratorService aiCodeGeneratorService = aiCodeGeneratorServiceFactory.getAiCodeGeneratorService(appId, codeGenTypeEnum);
         return switch (codeGenTypeEnum) {
             case HTML -> {
