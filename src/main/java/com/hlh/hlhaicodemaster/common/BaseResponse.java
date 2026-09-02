@@ -2,10 +2,12 @@ package com.hlh.hlhaicodemaster.common;
 
 import com.hlh.hlhaicodemaster.exception.ErrorCode;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 
 @Data
+@NoArgsConstructor
 public class BaseResponse<T> implements Serializable {
 
     private int code;
