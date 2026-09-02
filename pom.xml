@@ -53,7 +53,7 @@
         <dependency>
             <groupId>io.github.bonigarcia</groupId>
             <artifactId>webdrivermanager</artifactId>
-            <version>6.1.0</version>
+            <version>6.3.4</version>
         </dependency>
         <!-- 对象存储COS  -->
         <dependency>

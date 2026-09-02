@@ -111,27 +111,10 @@ public class WebScreenshotUtils {
      */
     private static WebDriver initChromeDriver(int width, int height) {
         try {
-            // 自动管理 ChromeDriver
-            System.setProperty("wdm.chromeDriverMirrorUrl", "https://registry.npmmirror.com/binary.html?path=chromedriver");
-            WebDriverManager.chromedriver().useMirror().setup();
             // 配置 Chrome 选项
-            ChromeOptions options = new ChromeOptions();
-            // 无头模式
-            options.addArguments("--headless");
-            // 禁用GPU（在某些环境下避免问题）
-            options.addArguments("--disable-gpu");
-            // 禁用沙盒模式（Docker环境需要）
-            options.addArguments("--no-sandbox");
-            // 禁用开发者shm使用
-            options.addArguments("--disable-dev-shm-usage");
-            // 设置窗口大小
-            options.addArguments(String.format("--window-size=%d,%d", width, height));
-            // 禁用扩展
-            options.addArguments("--disable-extensions");
-            // 设置用户代理
-            options.addArguments("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
-            // 创建驱动
-            WebDriver driver = new ChromeDriver(options);
+            ChromeOptions options = buildChromeOptions(width, height);
+            // 创建驱动：优先使用 Selenium 4 内置的 Selenium Manager 自动管理驱动，失败时回退到 WebDriverManager
+            WebDriver driver = createChromeDriverWithFallback(options);
             // 设置页面加载超时
             driver.manage().timeouts().pageLoadTimeout(Duration.ofSeconds(30));
             // 设置隐式等待
@@ -141,6 +124,100 @@ public class WebScreenshotUtils {
             log.error("初始化 Chrome 浏览器失败", e);
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "初始化 Chrome 浏览器失败");
         }
+    }
+
+    /**
+     * 创建 ChromeDriver，按优先级尝试多种驱动管理方式：
+     * <ol>
+     *   <li>本地已安装的 chromedriver（通过系统属性或 PATH 查找，无网络请求，最快）</li>
+     *   <li>Selenium 4 内置的 Selenium Manager（自动管理，但需访问 Google 域名，国内可能超时）</li>
+     *   <li>WebDriverManager（第三方库，支持国内镜像）</li>
+     * </ol>
+     */
+    private static WebDriver createChromeDriverWithFallback(ChromeOptions options) {
+        // 方案一：优先使用本地已安装的 chromedriver（零网络请求，生产环境推荐）
+        // 可通过 -Dwebdriver.chrome.driver=/path/to/chromedriver 指定路径
+        // 或将 chromedriver 加入系统 PATH
+        String localDriverPath = resolveLocalChromeDriverPath();
+        if (localDriverPath != null) {
+            try {
+                log.info("使用本地已安装的 chromedriver: {}", localDriverPath);
+                System.setProperty("webdriver.chrome.driver", localDriverPath);
+                WebDriver driver = new ChromeDriver(options);
+                log.info("本地 chromedriver 启动成功");
+                return driver;
+            } catch (Exception e) {
+                log.warn("本地 chromedriver 启动失败（{}），尝试下一种方式", e.getMessage());
+                System.clearProperty("webdriver.chrome.driver");
+            }
+        }
+        // 方案二：Selenium 4 内置的 Selenium Manager（自动检测浏览器并下载匹配驱动）
+        // 注意：需要访问 googlechromelabs.github.io，国内网络可能超时
+        try {
+            log.info("尝试使用 Selenium Manager 自动管理 ChromeDriver...");
+            WebDriver driver = new ChromeDriver(options);
+            log.info("Selenium Manager 自动管理 ChromeDriver 成功");
+            return driver;
+        } catch (Exception e) {
+            log.warn("Selenium Manager 创建 ChromeDriver 失败（{}），尝试使用 WebDriverManager 回退", e.getMessage());
+        }
+        // 方案三：回退到 WebDriverManager
+        try {
+            WebDriverManager.chromedriver().setup();
+            log.info("WebDriverManager 成功设置 ChromeDriver");
+            return new ChromeDriver(options);
+        } catch (Exception e) {
+            log.error("WebDriverManager 设置 ChromeDriver 也失败", e);
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "ChromeDriver 初始化失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 查找本地已安装的 chromedriver 路径
+     * 查找顺序：系统属性 webdriver.chrome.driver → PATH 环境变量中的 chromedriver
+     */
+    private static String resolveLocalChromeDriverPath() {
+        // 1. 检查系统属性是否已指定路径
+        String driverPath = System.getProperty("webdriver.chrome.driver");
+        if (StrUtil.isNotBlank(driverPath) && new File(driverPath).exists()) {
+            return driverPath;
+        }
+        // 2. 尝试从 PATH 中查找 chromedriver
+        String pathEnv = System.getenv("PATH");
+        if (StrUtil.isNotBlank(pathEnv)) {
+            // Windows 查找 chromedriver.exe，Linux 查找 chromedriver
+            String driverName = System.getProperty("os.name", "").toLowerCase().contains("win")
+                    ? "chromedriver.exe" : "chromedriver";
+            for (String dir : pathEnv.split(File.pathSeparator)) {
+                File candidate = new File(dir, driverName);
+                if (candidate.exists() && candidate.canExecute()) {
+                    return candidate.getAbsolutePath();
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 构建 Chrome 选项
+     */
+    private static ChromeOptions buildChromeOptions(int width, int height) {
+        ChromeOptions options = new ChromeOptions();
+        // 无头模式
+        options.addArguments("--headless");
+        // 禁用GPU（在某些环境下避免问题）
+        options.addArguments("--disable-gpu");
+        // 禁用沙盒模式（Docker环境需要）
+        options.addArguments("--no-sandbox");
+        // 禁用开发者shm使用
+        options.addArguments("--disable-dev-shm-usage");
+        // 设置窗口大小
+        options.addArguments(String.format("--window-size=%d,%d", width, height));
+        // 禁用扩展
+        options.addArguments("--disable-extensions");
+        // 设置用户代理
+        options.addArguments("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+        return options;
     }
 
 

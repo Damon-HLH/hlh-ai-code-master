@@ -4,7 +4,6 @@ import cn.hutool.extra.spring.SpringUtil;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.hlh.hlhaicodemaster.ai.guardrail.PromptSafetyInputGuardrail;
-import com.hlh.hlhaicodemaster.ai.guardrail.RetryOutputGuardrail;
 import com.hlh.hlhaicodemaster.ai.tools.*;
 import com.hlh.hlhaicodemaster.exception.BusinessException;
 import com.hlh.hlhaicodemaster.exception.ErrorCode;
@@ -12,7 +11,6 @@ import com.hlh.hlhaicodemaster.model.enums.CodeGenTypeEnum;
 import com.hlh.hlhaicodemaster.service.ChatHistoryService;
 import dev.langchain4j.community.store.memory.chat.redis.RedisChatMemoryStore;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
-import dev.langchain4j.guardrail.config.InputGuardrailsConfig;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
@@ -127,7 +125,7 @@ public class AiCodeGeneratorServiceFactory {
                                 ToolExecutionResultMessage.from(toolExecutionRequest,
                                         "Error: there is no tool called " + toolExecutionRequest.name())
                         )
-                        .maxSequentialToolsInvocations(50) // 最大允许50次工具调用
+                        .maxSequentialToolsInvocations(25) // 最大允许25次工具调用
                         .inputGuardrails(new PromptSafetyInputGuardrail()) //添加输入护轨
 //                        .outputGuardrails(new RetryOutputGuardrail()) //添加输出护轨，为了流式输出，这里不使用
                         .build();
@@ -140,7 +138,7 @@ public class AiCodeGeneratorServiceFactory {
                         .chatModel(chatModel)
                         .streamingChatModel(streamingChatModel)
                         .chatMemory(chatMemory)
-                        .maxSequentialToolsInvocations(50) // 最大允许50次工具调用
+                        .maxSequentialToolsInvocations(20) // 最大允许20次工具调用
                         .inputGuardrails(new PromptSafetyInputGuardrail()) //添加输入护轨
 //                        .outputGuardrails(new RetryOutputGuardrail()) //添加输出护轨，为了流式输出，这里不使用
                         .build();
