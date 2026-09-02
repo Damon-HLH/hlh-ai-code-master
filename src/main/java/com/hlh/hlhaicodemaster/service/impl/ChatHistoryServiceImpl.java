@@ -100,9 +100,30 @@ public class ChatHistoryServiceImpl extends ServiceImpl<ChatHistoryMapper, ChatH
      * 3. 加载前先清理Redis中的历史对话记忆，防止重复加载。
      * 然后就可以在初始化AlService的对话记忆时调用了，这相当于是懒加载，对话时才会加载记忆，节约内存。
      *
+     * 关于 maxCount 与记忆窗口容量 maxMessages（见 AiCodeGeneratorServiceFactory 中 MessageWindowChatMemory.maxMessages）的关系：
+     * 4. 二者职责不同，无需相等：maxMessages 是窗口容量上限（一次活跃会话内可堆积的消息数，超限后从最老淘汰）；
+     *    maxCount 只是冷重载时从数据库捞回的“跨轮历史”条数。
+     * 5. 本方法开头会执行 chatMemory.clear()，因此冷重载后记忆中最多只有 maxCount 条历史，即“跨轮记忆上限 = maxCount”，而非 maxMessages。
+     * 6. 必须保证 maxCount < maxMessages，并给“当前这一轮”预留空间：本轮会加入 SystemMessage + 当前 UserMessage，
+     *    Vue 项目场景一轮最多约 25 次工具调用（约 50 条工具请求/工具结果消息）。若 maxCount = maxMessages，
+     *    刚重载的历史会被本轮消息立即挤出窗口，白白多查数据库且无收益。
+     * 7. chat_history 表的 messageType 只有 user/ai，但 ai 消息是“合成文本”：流式响应完成时，
+     *    JsonMessageStreamHandler 把 AI 文本片段 + 各工具的 TOOL_EXECUTED 结果拼接入库
+     *    （TOOL_REQUEST 标记只给前端，不入库）。其中 FileWriteTool / FileModifyTool 会把完整
+     *    文件内容嵌入。因此重载后 AI 能“读到”历史轮次的工具动作与生成代码 —— 跨轮上下文并非不可恢复。
+     * 8. 但要区分两种形态：(a) 结构化协议消息（AiMessage.toolExecutionRequests + 配对 ToolExecutionResultMessage），
+     *    只在当前活跃轮次窗口内，由 maxMessages 管，是工具循环能跑起来的真正协议，不入库、无法重载还原；
+     *    (b) 扁平化文本（DB 那条合成 AI 消息），跨轮次可重载，由 maxCount 管能重载几轮。
+     *    防死循环：当前轮次靠 maxMessages 窗口里的结构化消息；跨轮次靠 maxCount 控制的扁平化文本让 AI 以读文本方式了解历史。
+     * 9. 由于每条 Vue AI 消息内嵌完整生成代码，maxMessages/maxCount 数的是条数而非 token，
+     *    20 条重载可能已是很大的 token 量。若 maxCount 提到 50，冷重载会一次性把几十条含完整代码的消息
+     *    塞进上下文，极易撑爆模型上下文窗口、token 成本剧增。故 maxCount 应保持小（20 甚至更小），切勿等于 maxMessages。
+     * 10. 结论：maxCount 应明显小于 maxMessages（当前 20 / 50 合理）；仅当“跨很多轮后 AI 记不住早期需求”时才适当调大
+     *     maxCount（如 30），必要时同步抬高 maxMessages（如 60~80），切勿设为相等。
+     *
      * @param appId
      * @param chatMemory
-     * @param maxCount   最多加载多少条
+     * @param maxCount   最多加载多少条历史对话；必须小于窗口容量 maxMessages 并预留本轮空间，切勿与 maxMessages 相等
      * @return
      */
     @Override

@@ -103,7 +103,7 @@ public class AiCodeGeneratorServiceFactory {
                 .builder()
                 .id(appId)
                 .chatMemoryStore(redisChatMemoryStore)  //保存会话记忆在 redis 存储中
-                .maxMessages(20) // 针对每个应用 保存20条会话历史
+                .maxMessages(50) // 针对每个应用 保存50条会话历史
                 .build();
         // 从数据库中加载对话历史到对话记忆中
         chatHistoryService.loadChatHistoryToMemory(appId, chatMemory, 20);
