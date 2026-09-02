@@ -3,6 +3,7 @@ package com.hlh.hlhaicodemaster.ai;
 import cn.hutool.extra.spring.SpringUtil;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.hlh.hlhaicodemaster.ai.guardrail.PromptSafetyInputGuardrail;
 import com.hlh.hlhaicodemaster.ai.tools.*;
 import com.hlh.hlhaicodemaster.exception.BusinessException;
 import com.hlh.hlhaicodemaster.exception.ErrorCode;
@@ -10,6 +11,7 @@ import com.hlh.hlhaicodemaster.model.enums.CodeGenTypeEnum;
 import com.hlh.hlhaicodemaster.service.ChatHistoryService;
 import dev.langchain4j.community.store.memory.chat.redis.RedisChatMemoryStore;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
+import dev.langchain4j.guardrail.config.InputGuardrailsConfig;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
@@ -124,6 +126,7 @@ public class AiCodeGeneratorServiceFactory {
                                 ToolExecutionResultMessage.from(toolExecutionRequest,
                                         "Error: there is no tool called " + toolExecutionRequest.name())
                         )
+                        .inputGuardrails(new PromptSafetyInputGuardrail()) //添加输入护轨
                         .build();
             }
             // HTML 和 多文件生成，使用流式对话模型
@@ -134,6 +137,7 @@ public class AiCodeGeneratorServiceFactory {
                         .chatModel(chatModel)
                         .streamingChatModel(streamingChatModel)
                         .chatMemory(chatMemory)
+                        .inputGuardrails(new PromptSafetyInputGuardrail()) //添加输入护轨
                         .build();
             }
             default -> throw new BusinessException(ErrorCode.SYSTEM_ERROR, "不支持的代码生成类型：" + codeGenType.getValue());
