@@ -264,21 +264,24 @@ const deleteApp = async (id: number | undefined) => {
 
 <style scoped>
 #appManagePage {
+  margin: 16px 24px;
   padding: 24px;
-  background: white;
-  margin-top: 16px;
+  background: #fff;
+  border-radius: var(--hc-radius-lg);
+  border: 1px solid var(--hc-border-light);
+  box-shadow: var(--hc-shadow-card);
 }
 
 .no-cover {
   width: 80px;
   height: 60px;
-  background: #f5f5f5;
+  background: #f5f7fb;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #999;
+  color: var(--hc-text-3);
   font-size: 12px;
-  border-radius: 4px;
+  border-radius: var(--hc-radius-sm);
 }
 
 .prompt-text {
@@ -289,7 +292,7 @@ const deleteApp = async (id: number | undefined) => {
 }
 
 .text-gray {
-  color: #999;
+  color: var(--hc-text-3);
 }
 
 .featured-btn {

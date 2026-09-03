@@ -132,7 +132,8 @@ const doSearch = () => {
 }
 
 // 删除数据
-const doDelete = async (id: string) => {
+// 注：id 仅修正类型标注以匹配 API.DeleteRequest（原标注 string 导致 vue-tsc 报错阻塞构建），运行时传值不变
+const doDelete = async (id: number) => {
   if (!id) {
     return
   }
@@ -154,8 +155,11 @@ onMounted(() => {
 
 <style scoped>
 #userManagePage {
+  margin: 16px 24px;
   padding: 24px;
-  background: white;
-  margin-top: 16px;
+  background: #fff;
+  border-radius: var(--hc-radius-lg);
+  border: 1px solid var(--hc-border-light);
+  box-shadow: var(--hc-shadow-card);
 }
 </style>

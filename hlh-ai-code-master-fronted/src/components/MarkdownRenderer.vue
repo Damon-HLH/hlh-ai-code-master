@@ -149,7 +149,7 @@ const renderedMarkdown = computed(() => {
 }
 
 .markdown-content :deep(a) {
-  color: #1890ff;
+  color: var(--hc-primary);
   text-decoration: none;
 }
 

@@ -198,9 +198,12 @@ const deleteMessage = async (id: number | undefined) => {
 
 <style scoped>
 #chatManagePage {
+  margin: 16px 24px;
   padding: 24px;
-  background: white;
-  margin-top: 16px;
+  background: #fff;
+  border-radius: var(--hc-radius-lg);
+  border: 1px solid var(--hc-border-light);
+  box-shadow: var(--hc-shadow-card);
 }
 
 .message-text {

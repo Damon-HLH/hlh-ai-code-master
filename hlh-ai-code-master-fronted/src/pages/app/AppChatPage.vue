@@ -71,17 +71,21 @@
 
           <!-- Vue 工程构建状态气泡：代码生成完成后实时展示打包构建进度（独立气泡，不再纯文本追加到正文） -->
           <div v-if="buildStatus.stage !== 'idle'" class="build-status-wrapper">
+            <!-- 占位：与 AI 消息头像等宽，使构建卡与 AI 气泡正文左边界对齐 -->
+            <div class="build-status-spacer"></div>
             <div class="build-status-bubble" :class="`build-${buildStatus.stage}`">
               <div class="build-status-header">
-                <a-spin v-if="buildStatus.stage === 'building'" size="small" />
-                <CheckCircleFilled
-                    v-else-if="buildStatus.stage === 'success'"
-                    class="build-icon build-icon-success"
-                />
-                <CloseCircleFilled
-                    v-else-if="buildStatus.stage === 'failed'"
-                    class="build-icon build-icon-failed"
-                />
+                <span class="build-icon-wrap" :class="`build-icon-wrap-${buildStatus.stage}`">
+                  <a-spin v-if="buildStatus.stage === 'building'" size="small" />
+                  <CheckCircleFilled
+                      v-else-if="buildStatus.stage === 'success'"
+                      class="build-icon build-icon-success"
+                  />
+                  <CloseCircleFilled
+                      v-else-if="buildStatus.stage === 'failed'"
+                      class="build-icon build-icon-failed"
+                  />
+                </span>
                 <span class="build-status-title">
                   {{
                     buildStatus.stage === 'building'
@@ -857,7 +861,7 @@ onUnmounted(() => {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--hc-text-1);
 }
 
 .header-right {
@@ -880,8 +884,9 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: var(--hc-radius-md);
+  border: 1px solid var(--hc-border-light);
+  box-shadow: var(--hc-shadow-card);
   overflow: hidden;
 }
 
@@ -919,13 +924,13 @@ onUnmounted(() => {
 }
 
 .user-message .message-content {
-  background: #1890ff;
+  background: var(--hc-primary);
   color: white;
 }
 
 .ai-message .message-content {
-  background: #f5f5f5;
-  color: #1a1a1a;
+  background: #f5f7fb;
+  color: var(--hc-text-1);
   padding: 8px 12px;
 }
 
@@ -943,18 +948,25 @@ onUnmounted(() => {
 /* Vue 工程构建状态气泡 + 进度条 */
 .build-status-wrapper {
   display: flex;
-  justify-content: flex-start;
+  align-items: flex-start;
+  gap: 8px;
   margin: 4px 0 12px 0;
+}
+
+/* 与 .message-avatar 默认头像等宽，保证与 AI 气泡左对齐 */
+.build-status-spacer {
+  width: 32px;
+  flex-shrink: 0;
 }
 
 .build-status-bubble {
   max-width: 70%;
   min-width: 260px;
   padding: 12px 16px;
-  border-radius: 12px;
+  border-radius: var(--hc-radius-md);
   background: #f5f8ff;
   border: 1px solid #e0e8ff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--hc-shadow-card);
 }
 
 .build-status-bubble.build-success {
@@ -970,61 +982,80 @@ onUnmounted(() => {
 .build-status-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+}
+
+.build-icon-wrap {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.build-icon-wrap-success {
+  background: rgba(34, 197, 94, 0.14);
+}
+
+.build-icon-wrap-failed {
+  background: rgba(239, 68, 68, 0.12);
 }
 
 .build-status-title {
   font-size: 14px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--hc-text-1);
 }
 
 .build-status-message {
   margin-top: 6px;
   font-size: 13px;
   line-height: 1.5;
-  color: #666;
+  color: var(--hc-text-2);
 }
 
 .build-icon {
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .build-icon-success {
-  color: #52c41a;
+  color: var(--hc-success);
 }
 
 .build-icon-failed {
-  color: #ff4d4f;
+  color: var(--hc-error);
 }
 
 .build-progress {
   height: 6px;
-  margin-top: 10px;
-  border-radius: 3px;
+  margin-top: 12px;
+  border-radius: var(--hc-radius-pill);
   overflow: hidden;
-  background: #e9edf5;
+  background: #eef1f7;
 }
 
 .build-progress-bar {
   height: 100%;
   width: 100%;
-  border-radius: 3px;
+  border-radius: var(--hc-radius-pill);
 }
 
 /* 构建中：不确定态流动进度条 */
 .build-progress-building .build-progress-bar {
   width: 40%;
-  background: linear-gradient(90deg, #1890ff, #69c0ff);
+  background: linear-gradient(90deg, #2563eb, #60a5fa);
   animation: build-indeterminate 1.2s ease-in-out infinite;
 }
 
 .build-progress-success .build-progress-bar {
-  background: #52c41a;
+  background: var(--hc-success);
 }
 
 .build-progress-failed .build-progress-bar {
-  background: #ff4d4f;
+  background: var(--hc-error);
 }
 
 @keyframes build-indeterminate {
@@ -1069,8 +1100,9 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: var(--hc-radius-md);
+  border: 1px solid var(--hc-border-light);
+  box-shadow: var(--hc-shadow-card);
   overflow: hidden;
 }
 
@@ -1079,13 +1111,14 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px;
-  border-bottom: 1px solid #e8e8e8;
+  border-bottom: 1px solid var(--hc-border-light);
 }
 
 .preview-header h3 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
+  color: var(--hc-text-1);
 }
 
 .preview-actions {
@@ -1197,7 +1230,7 @@ onUnmounted(() => {
     font-family: 'Monaco', 'Menlo', monospace;
     font-size: 14px;
     font-weight: 600;
-    color: #007bff;
+    color: var(--hc-primary);
   }
 
   .element-id {

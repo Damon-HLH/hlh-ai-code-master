@@ -2,11 +2,14 @@
   <a-layout-header class="header">
     <a-row :wrap="false">
       <!-- 左侧：Logo和标题 -->
-      <a-col flex="200px">
-        <RouterLink to="/">
+      <a-col flex="240px">
+        <RouterLink to="/" class="brand-link">
           <div class="header-left">
-            <img class="logo" src="@/assets/logo.png" alt="Logo" />
-            <h1 class="site-title">鱼皮应用生成</h1>
+            <BrandLogo :size="38" />
+            <div class="brand-text">
+              <span class="brand-name">HCoder</span>
+              <span class="brand-slogan">AI应用生成平台</span>
+            </div>
           </div>
         </RouterLink>
       </a-col>
@@ -54,6 +57,7 @@ import { type MenuProps, message } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser.ts'
 import { userLogout } from '@/api/userController.ts'
 import { LogoutOutlined, HomeOutlined } from '@ant-design/icons-vue'
+import BrandLogo from '@/components/BrandLogo.vue'
 
 const loginUserStore = useLoginUserStore()
 const router = useRouter()
@@ -81,11 +85,6 @@ const originItems = [
     key: '/admin/appManage',
     label: '应用管理',
     title: '应用管理',
-  },
-  {
-    key: 'others',
-    label: h('a', { href: 'https://www.codefather.cn', target: '_blank' }, '编程导航'),
-    title: '编程导航',
   },
 ]
 
@@ -133,7 +132,9 @@ const doLogout = async () => {
 
 <style scoped>
 .header {
-  background: #fff;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--hc-border-light);
   padding: 0 24px;
 }
 
@@ -143,18 +144,40 @@ const doLogout = async () => {
   gap: 12px;
 }
 
-.logo {
-  height: 48px;
-  width: 48px;
+/* RouterLink 渲染的 <a> 默认是行内元素，内嵌块级 div 会额外生成 64px 的 strut 行盒，
+   导致品牌区整体偏高；改为填满 header 高度的 flex 容器并重置行高，使其与菜单水平居中对齐 */
+.brand-link {
+  display: flex;
+  align-items: center;
+  height: 64px;
+  line-height: normal;
+  text-decoration: none;
 }
 
-.site-title {
-  margin: 0;
-  font-size: 18px;
-  color: #1890ff;
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.brand-name {
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.3px;
+  color: var(--hc-text-1);
+}
+
+.brand-slogan {
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--hc-text-3);
 }
 
 .ant-menu-horizontal {
   border-bottom: none !important;
+  /* antd 默认 menuHorizontalHeight = controlHeightLG * 1.15 = 46px，在 64px 的 header 里会顶部对齐，
+     使菜单文字中心（23px）高于品牌区与右侧用户区（32px）；撑满 header 高度后三者共用同一水平中心线 */
+  line-height: 64px;
 }
 </style>
