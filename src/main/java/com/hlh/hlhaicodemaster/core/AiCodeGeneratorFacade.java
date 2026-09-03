@@ -6,6 +6,7 @@ import com.hlh.hlhaicodemaster.ai.AiCodeGeneratorServiceFactory;
 import com.hlh.hlhaicodemaster.ai.model.HtmlCodeResult;
 import com.hlh.hlhaicodemaster.ai.model.MultiFileCodeResult;
 import com.hlh.hlhaicodemaster.ai.model.message.AiResponseMessage;
+import com.hlh.hlhaicodemaster.ai.model.message.BuildStatusMessage;
 import com.hlh.hlhaicodemaster.ai.model.message.ToolExecutedMessage;
 import com.hlh.hlhaicodemaster.ai.model.message.ToolRequestMessage;
 import com.hlh.hlhaicodemaster.constant.AppConstant;
@@ -129,9 +130,26 @@ public class AiCodeGeneratorFacade {
                     })
                     .onCompleteResponse((ChatResponse response) -> {
                         // 在所有代码生成并写入文件完成后（AI用写入文件工具），就可以去构建Vue项目（npm install && npm run build）
-                        // 执行 Vue 项目构建（同步执行，确保预览时项目已就绪）
                         String projectPath = AppConstant.CODE_OUTPUT_ROOT_DIR + File.separator + "vue_project_" + appId;
-                        vueProjectBuilder.buildProject(projectPath);
+                        // 构建前：复用已有 SSE 通道推送“构建中”状态，让用户实时感知进度，避免构建期间静默等待
+                        sink.next(JSONUtil.toJsonStr(new BuildStatusMessage("BUILDING",
+                                "\n\n代码已生成，正在安装依赖并构建项目，这可能需要几十秒到几分钟，请稍候...\n\n")));
+                        try {
+                            // 同步执行构建，确保预览时项目已就绪
+                            boolean buildSuccess = vueProjectBuilder.buildProject(projectPath);
+                            if (buildSuccess) {
+                                sink.next(JSONUtil.toJsonStr(new BuildStatusMessage("SUCCESS",
+                                        "\n\n项目已成功构建，正在为你加载最新预览。\n\n")));
+                            } else {
+                                // 构建失败兜底：推送失败提示，避免前端误以为已就绪而展示旧/坏页面
+                                sink.next(JSONUtil.toJsonStr(new BuildStatusMessage("FAILED",
+                                        "\n\n项目构建未通过，预览可能不是最新效果，请检查代码或重试。\n\n")));
+                            }
+                        } catch (Exception e) {
+                            log.error("Vue 项目构建异常，appId: {}", appId, e);
+                            sink.next(JSONUtil.toJsonStr(new BuildStatusMessage("FAILED",
+                                    "\n\n项目构建过程出现异常，预览可能不是最新效果，请稍后重试。\n\n")));
+                        }
                         sink.complete();
                     })
                     .onError((Throwable error) -> {

@@ -7,6 +7,7 @@ import cn.hutool.json.JSONUtil;
 import com.hlh.hlhaicodemaster.ai.model.message.*;
 import com.hlh.hlhaicodemaster.ai.tools.BaseTool;
 import com.hlh.hlhaicodemaster.ai.tools.ToolManager;
+import com.hlh.hlhaicodemaster.constant.AppConstant;
 import com.hlh.hlhaicodemaster.core.builder.VueProjectBuilder;
 import com.hlh.hlhaicodemaster.model.entity.User;
 import com.hlh.hlhaicodemaster.model.enums.ChatHistoryMessageTypeEnum;
@@ -120,6 +121,12 @@ public class JsonMessageStreamHandler {
                 String output = String.format("\n\n%s\n\n", result);
                 chatHistoryStringBuilder.append(output);
                 return output;
+            }
+            case BUILD_STATUS -> {
+                // 构建状态不拼进 AI 正文、不计入对话历史；加标识前缀，交由控制器剥离为独立的 build-status SSE 事件，
+                // 前端据此渲染构建进度条/状态气泡（而非纯文本追加）
+                BuildStatusMessage buildStatusMessage = JSONUtil.toBean(chunk, BuildStatusMessage.class);
+                return AppConstant.BUILD_STATUS_STREAM_PREFIX + JSONUtil.toJsonStr(buildStatusMessage);
             }
             default -> {
                 log.error("不支持的消息类型: {}", typeEnum);

@@ -81,6 +81,14 @@ public class AppController {
             Flux<String> contentFlux = appService.chatToGenCode(appId, message, loginUser);
             return contentFlux
                     .map(chunk -> {
+                        // 构建状态消息：路由为独立的 build-status 事件，前端渲染进度条/状态气泡，而非并入正文
+                        if (chunk.startsWith(AppConstant.BUILD_STATUS_STREAM_PREFIX)) {
+                            String payload = chunk.substring(AppConstant.BUILD_STATUS_STREAM_PREFIX.length());
+                            return ServerSentEvent.<String>builder()
+                                    .event("build-status")
+                                    .data(payload)
+                                    .build();
+                        }
                         Map<String, String> wrapper = Map.of("d", chunk);
                         String jsonData = JSONUtil.toJsonStr(wrapper);
                         return ServerSentEvent.<String>builder()

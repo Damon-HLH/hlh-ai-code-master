@@ -68,6 +68,38 @@
               </div>
             </div>
           </div>
+
+          <!-- Vue 工程构建状态气泡：代码生成完成后实时展示打包构建进度（独立气泡，不再纯文本追加到正文） -->
+          <div v-if="buildStatus.stage !== 'idle'" class="build-status-wrapper">
+            <div class="build-status-bubble" :class="`build-${buildStatus.stage}`">
+              <div class="build-status-header">
+                <a-spin v-if="buildStatus.stage === 'building'" size="small" />
+                <CheckCircleFilled
+                    v-else-if="buildStatus.stage === 'success'"
+                    class="build-icon build-icon-success"
+                />
+                <CloseCircleFilled
+                    v-else-if="buildStatus.stage === 'failed'"
+                    class="build-icon build-icon-failed"
+                />
+                <span class="build-status-title">
+                  {{
+                    buildStatus.stage === 'building'
+                        ? '正在构建项目'
+                        : buildStatus.stage === 'success'
+                            ? '构建完成'
+                            : '构建失败'
+                  }}
+                </span>
+              </div>
+              <div v-if="buildStatus.message" class="build-status-message">
+                {{ buildStatus.message }}
+              </div>
+              <div class="build-progress" :class="`build-progress-${buildStatus.stage}`">
+                <div class="build-progress-bar"></div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- 选中元素信息展示 -->
@@ -237,6 +269,8 @@ import {
   InfoCircleOutlined,
   DownloadOutlined,
   EditOutlined,
+  CheckCircleFilled,
+  CloseCircleFilled,
 } from '@ant-design/icons-vue'
 
 const route = useRoute()
@@ -259,6 +293,12 @@ const messages = ref<Message[]>([])
 const userInput = ref('')
 const isGenerating = ref(false)
 const messagesContainer = ref<HTMLElement>()
+
+// Vue 工程构建状态：代码生成完成后，后端通过独立的 build-status SSE 事件实时推送打包构建进度
+const buildStatus = ref<{ stage: 'idle' | 'building' | 'success' | 'failed'; message: string }>({
+  stage: 'idle',
+  message: '',
+})
 
 // 对话历史相关
 const loadingHistory = ref(false)
@@ -479,6 +519,8 @@ const sendMessage = async () => {
 const generateCode = async (userMessage: string, aiMessageIndex: number) => {
   let eventSource: EventSource | null = null
   let streamCompleted = false
+  // 每次开始生成时重置构建状态气泡
+  buildStatus.value = { stage: 'idle', message: '' }
 
   try {
     // 获取 axios 配置的 baseURL
@@ -556,6 +598,21 @@ const generateCode = async (userMessage: string, aiMessageIndex: number) => {
       } catch (parseError) {
         console.error('解析错误事件失败:', parseError, '原始数据:', event.data)
         handleError(new Error('服务器返回错误'), aiMessageIndex)
+      }
+    })
+
+    // 处理构建状态事件（Vue 工程：代码生成完成后实时推送打包构建进度，渲染进度条/状态气泡）
+    eventSource.addEventListener('build-status', function (event: MessageEvent) {
+      try {
+        const statusData = JSON.parse(event.data)
+        const rawStage = (statusData.stage || '').toLowerCase()
+        buildStatus.value = {
+          stage: rawStage === 'success' ? 'success' : rawStage === 'failed' ? 'failed' : 'building',
+          message: (statusData.data || '').trim(),
+        }
+        scrollToBottom()
+      } catch (parseError) {
+        console.error('解析构建状态事件失败:', parseError, event.data)
       }
     })
 
@@ -881,6 +938,102 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   color: #666;
+}
+
+/* Vue 工程构建状态气泡 + 进度条 */
+.build-status-wrapper {
+  display: flex;
+  justify-content: flex-start;
+  margin: 4px 0 12px 0;
+}
+
+.build-status-bubble {
+  max-width: 70%;
+  min-width: 260px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #f5f8ff;
+  border: 1px solid #e0e8ff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.build-status-bubble.build-success {
+  background: #f6ffed;
+  border-color: #d9f7be;
+}
+
+.build-status-bubble.build-failed {
+  background: #fff2f0;
+  border-color: #ffccc7;
+}
+
+.build-status-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.build-status-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.build-status-message {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #666;
+}
+
+.build-icon {
+  font-size: 16px;
+}
+
+.build-icon-success {
+  color: #52c41a;
+}
+
+.build-icon-failed {
+  color: #ff4d4f;
+}
+
+.build-progress {
+  height: 6px;
+  margin-top: 10px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: #e9edf5;
+}
+
+.build-progress-bar {
+  height: 100%;
+  width: 100%;
+  border-radius: 3px;
+}
+
+/* 构建中：不确定态流动进度条 */
+.build-progress-building .build-progress-bar {
+  width: 40%;
+  background: linear-gradient(90deg, #1890ff, #69c0ff);
+  animation: build-indeterminate 1.2s ease-in-out infinite;
+}
+
+.build-progress-success .build-progress-bar {
+  background: #52c41a;
+}
+
+.build-progress-failed .build-progress-bar {
+  background: #ff4d4f;
+}
+
+@keyframes build-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
 }
 
 /* 加载更多按钮 */

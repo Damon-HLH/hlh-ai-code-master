@@ -29,4 +29,11 @@ public interface AppConstant {
      * 应用部署域名
      */
     String CODE_DEPLOY_HOST = "http://localhost";
+
+    /**
+     * 构建状态消息在 SSE 内容流中的标识前缀。
+     * 流处理器给构建状态消息加上该前缀，控制器据此将其从正文流中剥离，
+     * 路由为独立的 build-status SSE 事件，供前端渲染构建进度条/状态气泡。
+     */
+    String BUILD_STATUS_STREAM_PREFIX = "@@build-status@@";
 }
