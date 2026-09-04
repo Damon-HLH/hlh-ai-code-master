@@ -1,0 +1,97 @@
+# ===================================================================================
+# 配置模板文件
+#
+# 使用方式：
+#   1. 复制本文件为同目录下的 application-local.yml
+#   2. 把所有 <YOUR_XXX> 占位符替换为你自己申请的真实密钥
+#   3. application.yml 中 spring.profiles.active 默认为 local，无需额外指定
+#
+# 说明：application-local.yml 与 application-prod.yml 已在 .gitignore 中排除，
+#      真实密钥不会被提交到仓库；本模板文件只保留结构，可安全入库。
+#
+# 只使用「HTML / 多文件」两种生成模式时，cos、pexels、dashscope 三组配置可以留空占位，
+# 但 pexels.api-key 不能整体缺失（ImageSearchTool 用 @Value 强依赖该 key，缺失会导致启动失败）。
+# ===================================================================================
+
+# ---------------------------------------------------------------------------
+# AI 模型配置（OpenAI 兼容协议，示例以 DeepSeek 为例，可替换为 Qwen / GLM / OpenAI 等）
+# 四套模型分工：
+#   chat-model                        同步对话模型（结构化输出，如类型路由结果、质检结果）
+#   streaming-chat-model              流式模型，用于 HTML / 多文件模式
+#   reasoning-streaming-chat-model    推理流式模型，用于 Vue 工程模式（工具调用 + 长链路生成）
+#   routing-chat-model                轻量模型，仅用于代码生成类型路由判断（max-tokens 极小以控成本）
+# ---------------------------------------------------------------------------
+langchain4j:
+  open-ai:
+    chat-model:
+      base-url: https://api.deepseek.com
+      api-key: <YOUR_DEEPSEEK_API_KEY>
+      model-name: deepseek-chat
+      reasoning-effort: high        # 思考强度：max | high | low
+      max-tokens: 32768             # 32K token
+      max-retries: 3                # 最大重试次数
+      log-requests: true
+      log-responses: true
+    streaming-chat-model:
+      base-url: https://api.deepseek.com
+      api-key: <YOUR_DEEPSEEK_API_KEY>
+      model-name: deepseek-chat
+      max-tokens: 32768
+      log-requests: true
+      log-responses: true
+    # 推理 AI 模型配置（用于复杂的推理任务，即 Vue 工程模式）
+    reasoning-streaming-chat-model:
+      base-url: https://api.deepseek.com
+      api-key: <YOUR_DEEPSEEK_API_KEY>
+      model-name: deepseek-reasoner
+      max-tokens: 32768
+      temperature: 0.1              # 代码生成场景建议低温度，减少幻觉
+      log-requests: true
+      log-responses: true
+    # 智能路由 AI 模型配置（只做分类任务，max-tokens 压到最小以降低成本与延迟）
+    routing-chat-model:
+      base-url: https://api.deepseek.com
+      api-key: <YOUR_DEEPSEEK_API_KEY>
+      model-name: deepseek-chat
+      max-tokens: 100
+      log-requests: true
+      log-responses: true
+
+# ---------------------------------------------------------------------------
+# 腾讯云 COS 对象存储
+# 用途：应用封面截图上传、LangGraph4j 工作流中 Logo 生成图的持久化转存
+# 获取：腾讯云控制台 -> 对象存储 -> 创建存储桶；密钥在「访问管理 -> API 密钥管理」
+# ---------------------------------------------------------------------------
+cos:
+  client:
+    host: https://<YOUR_BUCKET>.cos.<YOUR_REGION>.myqcloud.com
+    secretId: <YOUR_COS_SECRET_ID>
+    secretKey: <YOUR_COS_SECRET_KEY>
+    region: ap-guangzhou
+    bucket: <YOUR_BUCKET>
+
+# ---------------------------------------------------------------------------
+# Pexels 图片搜索 API
+# 用途：LangGraph4j 工作流素材收集节点，搜索网站内容图
+# 获取：https://www.pexels.com/api/ 免费注册后拿到 api-key
+# ---------------------------------------------------------------------------
+pexels:
+  api-key: <YOUR_PEXELS_API_KEY>
+
+# ---------------------------------------------------------------------------
+# 阿里云百炼 DashScope
+# 用途：LangGraph4j 工作流中的文生图（Logo 生成）
+# 获取：https://bailian.console.aliyun.com/ 开通后创建 API-KEY
+# 模型价格参考：wanx2.0-t2i-turbo 约 0.04 元/张，wan2.2-t2i-flash 约 0.14 元/张
+# ---------------------------------------------------------------------------
+dashscope:
+  api-key: <YOUR_DASHSCOPE_API_KEY>
+  image-model: wanx2.0-t2i-turbo
+
+# ---------------------------------------------------------------------------
+# 应用部署访问域名
+# 说明：当前部署 URL 的域名实际取自 AppConstant.CODE_DEPLOY_HOST（默认 http://localhost），
+#      若要在公网服务器部署，需同步修改该常量或改造为读取本配置项。
+# ---------------------------------------------------------------------------
+code:
+  deploy-host: http://localhost

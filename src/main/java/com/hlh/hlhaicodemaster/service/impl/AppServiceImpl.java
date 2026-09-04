@@ -199,8 +199,8 @@ public class AppServiceImpl extends ServiceImpl<AppMapper, App> implements AppSe
         ThrowUtils.throwIf(!updateResult, ErrorCode.OPERATION_ERROR, "更新应用部署信息失败");
         // 10. 返回可访问的 URL 地址，给用户
         // 10. 构建应用访问 URL  生产环境地址
-        String appDeployUrl = String.format("%s/%s/", deployHost, deployKey);
-//        String appDeployUrl = String.format("%s/%s/", AppConstant.CODE_DEPLOY_HOST, deployKey);
+        // String appDeployUrl = String.format("%s/%s/", deployHost, deployKey);
+       String appDeployUrl = String.format("%s/%s/", AppConstant.CODE_DEPLOY_HOST, deployKey);
         // 11. 异步生成截图并且更新应用封面
         generateAppScreenshotAsync(appId, appDeployUrl);
         return appDeployUrl;
