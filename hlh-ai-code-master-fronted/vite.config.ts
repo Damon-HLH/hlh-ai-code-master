@@ -13,6 +13,8 @@ export default defineConfig({
     },
   },
   server: {
+    // 前端开发服务器端口，改为 8235（后端服务端口为 8234，便于记忆）
+    port: 8235,
     proxy: {
       '/api': {
         target: 'http://localhost:8234',
