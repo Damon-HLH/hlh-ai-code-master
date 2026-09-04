@@ -1,5 +1,5 @@
 <div align="center">
-<img src="docs/images/logo.png" alt="HCoder Logo" width="120" />
+<img src="docs/images/logo.svg" alt="HCoder Logo" width="120" />
 
 # HCoder · AI 应用生成平台
 
@@ -907,8 +907,6 @@ Vue 工程模式产出完整项目，下图为生成的 14 文件极客终端风
 ---
 
 ## Author
-
-**hlh**
 
 - GitHub：[Damon-HLH](https://github.com/Damon-HLH)
 

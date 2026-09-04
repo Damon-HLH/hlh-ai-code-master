@@ -26,6 +26,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import static dev.langchain4j.internal.Utils.copy;
+import static dev.langchain4j.internal.Utils.isNullOrBlank;
 import static dev.langchain4j.internal.ValidationUtils.ensureNotNull;
 
 /**
@@ -119,8 +120,29 @@ class AiServiceStreamingResponseHandler implements StreamingChatResponseHandler 
         if (aiMessage.hasToolExecutionRequests()) {
             for (ToolExecutionRequest toolExecutionRequest : aiMessage.toolExecutionRequests()) {
                 String toolName = toolExecutionRequest.name();
-                ToolExecutor toolExecutor = toolExecutors.get(toolName);
-                String toolExecutionResult = toolExecutor.execute(toolExecutionRequest, memoryId);
+                String toolExecutionResult;
+                try {
+                    ToolExecutor toolExecutor = toolExecutors.get(toolName);
+                    if (toolExecutor == null) {
+                        LOG.warn("未找到工具执行器: {}，将返回错误信息", toolName);
+                        toolExecutionResult = "Error: there is no tool called " + toolName;
+                    } else {
+                        toolExecutionResult = toolExecutor.execute(toolExecutionRequest, memoryId);
+                    }
+                } catch (Exception e) {
+                    LOG.error("工具执行异常: toolName={}, requestId={}", toolName, toolExecutionRequest.id(), e);
+                    toolExecutionResult = "Error executing tool '" + toolName + "': " + e.getMessage();
+                }
+
+                // 确保工具执行结果不为空，防止 ToolExecutionResultMessage 构造时抛出 IllegalArgumentException
+                // 导致后续 ToolExecutionResultMessage 无法加入内存，引发 API 报错
+                // "insufficient tool messages following tool_calls message"
+                if (isNullOrBlank(toolExecutionResult)) {
+                    LOG.warn("工具执行结果为空: toolName={}, requestId={}，使用兜底结果",
+                            toolName, toolExecutionRequest.id());
+                    toolExecutionResult = "Tool '" + toolName + "' returned an empty result.";
+                }
+
                 ToolExecutionResultMessage toolExecutionResultMessage =
                         ToolExecutionResultMessage.from(toolExecutionRequest, toolExecutionResult);
                 addToMemory(toolExecutionResultMessage);
